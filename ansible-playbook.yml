@@ -7,6 +7,6 @@
            state: directory
     - name:  copy file 
       copy:
-          content: "Hello ansible\n"
+          content: "Hello ansible v2\n"
           dest: /tmp/data/hello.html
 
