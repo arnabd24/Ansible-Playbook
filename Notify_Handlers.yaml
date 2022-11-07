@@ -1,0 +1,18 @@
+- hosts: server1
+  become: true
+  tasks:
+    - name: first deploy the application and capture the state
+      copy:
+        src: chrony.conf
+        dest: /etc/
+      notify: restart_chrony
+    - name: Install package
+      yum:
+        name: ftp
+        state: installed
+  handler: 
+    - name: Restart chrony service
+      service:
+        name: chronyd
+        state: restarted
+      listen: restart_chrony
