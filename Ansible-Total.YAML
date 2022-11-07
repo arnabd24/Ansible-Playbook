@@ -1,0 +1,1577 @@
+ansible <target-name>  -m <module-name>  -a ‘key=value’
+ansible-doc -l | wc -l
+
+ansible all -m ping
+ansible all -m command -a 'reboot' -b
+
+
+1)	command-> send linux based commands
+2)	raw-> raw module is almost same as command but it doesn't need python and we can send multiple commands at once
+    sends command over direct ssh
+3)	shell-> uses remote user's shell , we can use redirect and pipe
+4)	copy -> copy files from src to dest or from dest to src
+5)	fetch -> copy files from manage to master node
+6)	file -> file/directory level tasks
+7)	package -> install rpms in linux (machine independent)
+8)	yum -> RHEL based machines
+9)	service -> daemon start,restart,stop,disable,enable
+10)	yum_repository -> build yum repo
+11)	user -> user level tasks in linux
+12)	group -> group level tasks
+13)	parted -> create paritions in os
+14)	filesystem
+15)	mount -> Used for mounting 
+16)	lineinfile -> modifications / appendment inside file
+17)	replace
+18)	stat
+19)	setup
+20)	get_url -> download URLs from internet
+21) find
+22) stat
+23) replace
+
+
+copy module:
+
+ansible all -m copy -a 'src=data.sh dest=/tmp'
+ansible worker1 -m copy -a 'src=/data dest=/test owner=Arnab group=Arnab mode=0600'
+
+ansible worker2 -m copy -a 'src=/etc/fstab dest=/root/ remote_src=true'
+
+ansible worker1 -m copy -a 'src=/data dest=/test backup=yes'
+ansible worker1 -m copy -a 'content="Hello Today is Thursday" dest=/test/motd' #Add a content in file but it overwrites the module
+
+
+fetch module: it is used to collect data from target machine to local machine
+#src is the manage node and dest is the control node and the  file will be inside the host ip of the manage machine
+ansible worker2 -m fetch -a "dest=/etc/passwd src=/test" 
+
+#it will use the actual name of the file instead of putting it under hostip directory
+ansible worker2 -m fetch -a "dest=/test src=/etc/passwd/ flat=true"
+
+
+
+
+get_url: download file from http/https/ftp 
+
+
+ansible worker1 -m get_url -a 'url=https://www.w3schools.com/html/html_examples.asp dest=/test owner=Arnab mode=0777'
+
+synchronize: Incremental copy data , same function as rsync
+
+ansible worker1 -m synchronize -a 'src=/test/data dest=/test/'
+
+#from manage node to master node
+
+ansible worker1 -m synchronize -a 'src=/test/data dest=/test/ mode=pull'
+
+
+
+File: touch/mkdir/link/ , file and folder level operation
+
+ansible worker1 -m file -a 'path=/test/data state=directory' # by default folder creation works recursively 
+
+ansible worker1 -m file -a 'path=/test/data state=absent' #delete the files
+ansible worker1 -m file -a 'path=/test/data state=touch' #create file
+
+ansible worker1 -m file -a 'path=/test/data dest=/test/others state=link force=yes #mention force=yes only if the destination file doesn't exist
+
+ansible worker1 -m file -a 'src=/etc/fstab  dest=/test/data  state=link force=yes' #create soft link
+ansible worker1 -m file -a 'src=/etc/fstab  dest=/test/data  state=hard force=yes' #create hard link
+ansible worker1 -m file -a ' dest=/test/data2  state=absent' #remove the hardlink/softlink
+
+
+value of state must be one of: absent, directory, file, hard, link, touch
+
+
+
+yum_repository: build yum_repository
+
+ansible worker2 -m yum_repository -a 'name=redhat description="example of fedora repo" \
+baseurl=https://download.fedoraproject.org/pub/epel/$releasever/$basearch/ enabled=no gpgcheck=0'
+
+ansible worker2 -m yum_repository -a 'name=redhat state=absent' #delete the repo
+
+yum: it is used to install rpms and it works only on RHEL flavoured linux
+
+ansible worker1 -m yum -a 'name=vsftpd state=installed'
+ansible worker1 -m yum -a 'name=vsftpd state=latest'
+ansible worker1 -m yum -a 'name=vsftpd state=absent'
+
+value of state must be one of: absent, installed, latest, present, removed
+
+ansible worker1 -m yum -a 'name=* state=latest' #update all repositories
+
+apt: for debian flavoured machines
+
+package: install softwares
+
+ansible worker1 -m package -a 'name=vsftpd state=installed'
+
+
+service: it is used to start,restart,stop,enable,disable service daemons
+
+state should be reloaded, restarted, started, stopped
+
+ansible all -m service -a 'name=vsftpd state=started enabled=true'
+ansible all -m service -a 'name=vsftpd state=stop enabled=false'
+ansible all -m service -a 'name=vsftpd state=restart'
+
+
+
+
+group: group level operations
+
+ansible worker2 -m group -a 'name=staff gid=1020 state=present'
+ansible worker2 -m group -a 'name=staff state=absent'
+
+
+user: User management
+
+ansible worker2 -m user -a 'name=ravi state=present group=staff' #create user ravi with primary group staff
+
+ansible worker2 -m user -a 'name=ravi state=present groups=management' #groups mean secondary group
+
+ansible worker2 -m user -a 'name=ravi state=present groups=user,manager,admin append=yes' #multiple secondary groups
+
+ansible worker2 -m user -a 'name=ravi state=absent force=yes' 
+
+
+
+
+
+lineinfile: file level content modifications
+
+
+
+ansible worker1 -m lineinfile -a 'line="We are the champions" dest=/etc/motd' #if no argument is passed , it will add at the EOL
+
+ansible worker1 -m lineinfile -a 'line="We are the champions" dest=/etc/motd insertafter=BOF' #begining of file
+
+ansible worker1 -m lineinfile -a 'line="We are the champions" dest=/etc/motd insertafter=EOF' #end of file
+
+
+ansible worker1 -m lineinfile -a 'line="We are the champions" dest=/etc/motd state=absent' #delete the content we are champions from the file
+
+ansible worker1 -m lineinfile -a 'line="regexp=^Hell dest=/etc/motd state=absent' #remove lines which begin with ^Hell
+
+ansible worker1 -m lineinfile -a 'line="We are the champions" dest=/etc/motd insertafter=EOF'
+
+#insert a line even when the file doesn't exist
+
+ansible worker1 -m lineinfile -a 'line="test" path=/test/test.conf create=true'
+
+ansible worker1 -m lineinfile -a 'line="SELINUX=disabled" regexp="^se$" dest=/test/test.conf'
+
+ansible worker1 -m lineinfile -a 'line="SELINUX=disabled" regexp="^seli" dest=/test/test.conf'
+
+
+
+************************************************** Ansible Example********************************************
+
+
+
+raw: it is used to send commands
+
+
+ansible worker1 -m raw -a 'uptime;cal'
+
+
+shell: it is used to execute execute shell scripts 
+
+ansible worker1 -m shell -a 'root/data.sh'
+
+While writing ansible playbook
+
+'|' -> this means fold
+'>' -> Single line
+
+
+#path :- Anywhere
+#name:- *.yaml
+#yaml formats
+#1>string: only one key and one value
+ #key: value
+#2>listing: if one key has multiple values then it is written in this format
+#  key: - value1
+#       - value2
+#       - value3
+#3> Mapping format
+#     key:
+#       key1: value1
+#       key2: value2
+#       key3: value3
+#       key4:
+#          - value4
+# playbook's key always starts with '- hosts:'
+
+task1
+ansible-playbook p1.yml --syntax-check
+ansible-playbook p1.yml --check
+ansible-playbook p1.yml -C (dry run)
+ansible-playbook p1.yml -step (interactive play style)
+ansible-playbook p3.yml -vvvv (verbosity)
+p1.yml
+- hosts:
+    - worker1
+    - worker2
+  become: true
+  gather_facts: false
+  tasks:
+    - file:
+        path: /tmp/test
+        state: directory
+        mode: 0755
+    - copy:
+        src: /etc/fstab
+        dest: /tmp/test
+    - service:
+        name: crond
+        state: restarted
+#p2.yml
+- name: webserver #Dentoes the name of the playbook
+  hosts: all
+  become: true
+  gather_facts: false
+  user: Arnab
+  tasks:
+    - name: create directory to /tmp/tst
+      file:
+        path: /tmp/test
+        state: directory
+        mode: 0755
+    - name: copy /etc/passwd to /tmp/tst
+      copy:
+        src: /etc/passwd
+        dest: /tmp/tst
+    - name: Restart crond service
+      service:
+        name: crond
+        state: restarted
+    - name: install httpd and nfs package
+      yum:
+        name:
+          - nfs-utils
+          - httpd
+        state: installed
+
+#(Multi-Play Example) -> When tasks are categorized inside playbook. When we are pushing multiple tasks.
+
+- name: webserver #Dentoes the name of the playbook
+  hosts: worker1
+  become: true
+  gather_facts: false
+  user: Arnab
+  tasks:
+    - name: create directory to /tmp/tst
+      file:
+        path: /tmp/test
+        state: directory
+        mode: 0755
+    - name: copy /etc/passwd to /tmp/tst
+      copy:
+        src: /etc/passwd
+        dest: /tmp/tst
+- name: Database-Server
+  hosts: worker2
+  become: true
+  gather_facts: false
+    - name: Restart crond service
+      service:
+        name: crond
+        state: restarted
+    - name: install httpd and nfs package
+      yum:
+        name:
+          - nfs-utils
+          - vim-enhanced
+        state: installed
+###Importing task from other file
+- name: webserver
+  hosts: all
+  become: true
+  gather_facts: false
+  user: root
+  tasks:
+    - name: create directory to /tmp/tst
+      file:
+        path: /tmp/test
+        state: directory
+        mode: 0755
+    - name: copy /etc/passwd to /tmp/tst
+      copy:
+        src: /etc/passwd
+        dest: /tmp/tst
+    - name: import tasks from another file
+      import_tasks: /home/Arnab/ansible-playbook/install.yml
+##install.yml file
+#- name: Restart crond service
+#      service:
+#        name: crond
+#        state: restarted
+#    - name: install httpd and nfs package
+#      yum:
+#        name:
+#          - nfs-utils
+#          - vim-enhanced
+#        state: installed
+
+###Importing task from other file
+#include_tasks will fail where-ever there is an error but if any tasks are correct it will run them
+#import tasks check the syntax before pushing the file so if there is an issue with the task it will not run
+- name: webserver
+  hosts: all
+  become: true
+  gather_facts: false
+  user: root
+  tasks:
+    - name: create directory to /tmp/tst
+      file:
+        path: /tmp/test
+        state: directory
+        mode: 0755
+    - name: copy /etc/passwd to /tmp/tst
+      copy:
+        src: /etc/passwd
+        dest: /tmp/tst
+    - name: import tasks from another file
+      include_tasks: /home/Arnab/ansible-playbook/install.yml
+
+#example
+- name: Install HTTPd Service and copy index file
+  hosts: worker1
+  become: true
+  gather_facts: false
+  tasks:
+    - name: install httpd package
+      yum:
+        name: httpd
+        state: installed
+    - name: copy files to index.html
+      copy:
+        src: files/index.html
+        dest: /var/www/html
+    - name: Start HTTPD service
+      service:
+        name: httpd
+        enabled: true
+        state: started
+
+
+
+
+
+
+
+######################################################### ANSIBLE VARIABLE ##################################################################################
+
+#Playbook level variable
+#1. String format Variable
+#2. Listing format variable
+#3. Mapping format variable
+#Command level
+#Inventory level
+#precedence order
+#1. Command
+#2. Playbook-> can pass in playbook or from a different file or via mapping
+#3. Inventory level
+
+#Command Variable
+
+we need to pass -e
+
+ansible playbook data.yml -e username=ravi -e password=redhat
+
+command variable is not same as prompt variable , for command variable we have to know the names of the variables
+prompt variable reads the variable value on run time
+
+
+
+#Inventory level variable
+
+when we define variable at inventory level
+for an example we have 2 groups in inventory one is web and the other is dev
+but we want to deploy java 1.8 in web and java 1.7 in dev in that case we must use inventory level variables
+
+
+types:
+  host scope
+  group scope
+
+this inventory level variable is written in INI format
+
+hostspecific variables:
+
+[worker1]
+192.168.205.151 webroot=/var/www/html
+192.168.205.154
+192.168.205.152
+[worker2]
+192.168.205.156 webroot=/var/www/html/data
+
+in this above example the webroot variable will map only on .151 system
+
+
+grouplevel variable:
+
+[worker1]
+
+192.168.205.151
+192.168.205.159
+192.168.205.158
+
+[worker1:vars]
+
+webroot=/var/www/html/test
+
+[worker2]
+
+192.168.205.156
+
+[worker2:vars]
+
+webroot=/var/www/html/data
+
+
+[all:vars] #Applicable to all nodes
+
+in this example the webroot variable is having group scope so when we call this variable it will be applicable to all system
+
+
+
+
+#Example of inventory level variable 
+
+#the inventory file
+
+[worker1]
+
+192.168.205.151
+
+[worker1:vars]
+
+webroot=/var/www/html/data
+
+
+[worker2]
+
+192.168.205.156
+
+[worker2:vars]
+
+webroot=/var/www/html/test
+
+
+
+#yaml file example
+
+- hosts: all
+  become: true
+  tasks:
+    - name: Create directory
+      file:
+        path: "{{webroot}}"
+        directory: directory
+    - debug:
+        var: webroot   #Debug module is used to print the variable value
+
+
+
+
+when we pass multiple variables in inventory file then the file becomes complicated 
+to avoid this we can define two directories where your inventory file is located
+
+group_vars: for group level variable
+host_vars: for host level variable
+
+now we need to create file inside group_vars or host_vars with the group name and make sure it is in yaml format
+
+if your group name inside inventory was worker1 then you must create a file by name worker1
+
+
+
+
+
+#Ansible Facts variable
+
+by default ansible has a module called setup module , which collects multiple data from manage nodes
+such as mac/ip/lvm etc
+
+ansible worker1 -m setup
+
+ansible worker1 -m setup -a 'filter=*kernel*'
+
+when we run any playbook it is running gather_facts , the gather_facts actually 
+
+
+
+
+#Globally turn off gatherfacts in ansible playbook
+
+go inside the ansible.cfg file
+
+# plays will gather facts by default, which contain information about
+# the remote system.
+#
+# smart - gather by default, but don't regather if already gathered
+# implicit - gather by default, turn off with gather_facts: False
+# explicit - do not gather by default, must say gather_facts: True
+gathering = explicit
+
+
+
+#Examples of Variables (Make entry inside /etc/hosts file'
+
+- name: This is to test my ansible setup module
+  hosts: all
+  become: true
+  tasks:
+    - name: Add ip-address and hostname inside /etc/hosts file
+      lineinfile:
+        line: "{{ansible_ens33.ipv4.address }} {{ ansible_hostname }}"
+        dest: /etc/hosts
+    - debug:
+        msg:
+          The default IP is {{ansible_ens33.ipv4.address }}
+          and the hostname is {{ ansible_hostname }}
+
+
+#Example of Playbook level variable
+
+- name: Example of Playbook Level Variable
+  hosts: all
+  become: true
+  vars:
+    web: httpd
+    webroot: /var/www/html/data
+  tasks:
+    - name: Install apache package
+      yum:
+        name: "{{web}}"
+        state: installed
+    - name: Create "{{webroot}}"
+      file:
+        path: "{{webroot}}"
+        state: directory
+    - name: Create index page inside "{{webroot}}"
+      copy:
+        content: "Hello World"
+        dest: "{{webroot}}/index.html"
+    - name: Start Apache Server
+      service:
+        name: "{{web}}"
+        state: started
+        enabled: true
+
+#Variable from file , store the variable inside a file
+# web: httpd
+# webroot: /var/www/html/data
+
+- name: Example of Playbook Level Variable
+  hosts: all
+  become: true
+  gather_facts: false
+  vars_files:
+    - /home/Arnab/variable.yml
+  tasks:
+    - name: Install apache package
+      yum:
+        name: "{{web}}"
+        state: installed
+    - name: Create "{{webroot}}"
+      file:
+        path: "{{webroot}}"
+        state: directory
+    - name: Create index page inside "{{webroot}}"
+      copy:
+        content: "Hello World"
+        dest: "{{webroot}}/index.html"
+    - name: Start Apache Server
+      service:
+        name: "{{web}}"
+        state: started
+        enabled: true
+
+#Pass array level variables
+- name: Example of Playbook Level Variable
+  hosts: all
+  become: true
+  vars:
+    mypkg:
+      - httpd
+      - vsftpd
+  tasks:
+    - name: Install apache package
+      yum:
+        name: "{{web}}"
+        state: installed
+
+
+#Example of playbook level mapping list variable / list of hash variable
+
+- name: Example of Playbook Level Variable
+  hosts: all
+  become: true
+  vars:
+    myusers:
+      - ram:
+          uid: 1020
+          pw: redhat
+      - shyam:
+          uid: 2010
+          pw: redhat
+  tasks:
+    - name: Install apache package
+      yum:
+        name: "{{web}}"
+        state: installed
+
+#Interactive user input prompts in Ansible
+
+- name: Install httpd package
+  hosts: all
+  become: true
+  gather_facts: false
+  vars_prompt:
+    - name: username
+      prompt: What is your username?
+      private: no
+    - name: password
+      prompt: What is your password
+      private: yes
+  tasks:
+    - name: add users
+      user:
+        name: "{{username}}"
+        state: present
+        password: "{{password | password_hash('sha512')}}"
+
+#Registered variables
+#Set of manually defined variables which we can call later
+
+- name: Example of registered variable
+  hosts: all
+  become: true
+  tasks:
+    - name: check hardware mode
+      command: uname -m
+      register: xyz
+    - debug:
+        var: xyz.stdout
+    - name: store data inside motd file
+      copy:
+        content: "this is your potato mode {{ xyz.stdout }}"
+        dest: /etc/motd
+
+#Example of debug msg module
+
+
+- hosts: all
+  become: true
+  tasks:
+     - name: Print the gateway for each host when defined
+       debug:
+         msg: System {{ inventory_hostname }} has gateway {{ ansible_default_ipv4.gateway }}
+
+
+################################################################ Ansible-Condition #####################################################################
+
+
+Ansible condition is used generally in this format
+
+when: statement operator values
+
+statement:
+
+1) custom variable
+2) Variables from ansible facts
+3) Registered variable
+
+
+operator:-
+
+==
+>=
+<=
+>
+<
+!=
+not in
+is not defined 
+is defined
+
+extra operator:- 
+
+  and
+  or
+
+
+
+- name: Example of Conditional task
+  hosts: all
+  become: true
+  tasks:
+    - name: install httpd only on redhat family servers
+      yum:
+        name: httpd
+        state: installed
+      when: ansible_os_family == "Centos"
+    - name: install httpd only on Any servers
+      yum:
+        name: httpd
+        state: installed
+      when: ansible_os_family == "Centos" or "Redhat" or "Ubuntu"
+    - name: install httpd only on Any servers
+      yum:
+        name: httpd
+        state: installed
+      when: ansible_distribution == "Centos" and ansible_distribution_version == "7.9"
+
+
+
+- name: Example of Conditional task
+  hosts: server1
+  become: true
+  tasks:
+    - name: install httpd only on redhat family servers
+      yum:
+        name: httpd
+        state: installed
+      when: >
+       (ansible_distribution == "Centos" and ansible_distribution_version == "7.9")
+       or
+       (ansible_distribution == "Fedora" and ansible_distribution_version == "7.9")
+
+
+
+- name: Example of Conditional task
+  hosts: all
+  become: true
+  tasks:
+    - name: First check file existance
+      stat:
+        path: /tmp/abc.conf
+      register: xyz
+    - name: Create file if it doesn't exists
+      copy:
+        content: 'nameserver {{ ansible_dns.nameservers}}'
+        dest: /tmp/abc.conf
+      when: xyz.stat.exists == false
+
+
+- name: Ansible-Condition
+  hosts: all
+  become: true
+  tasks:
+    - name: Install mariadb where root size is more than 5GB
+      yum:
+        name: mariadb
+        state: installed
+      when: item.mount == "/" and item.size_available > 10000000000
+      with_items:
+        "{{ ansible_mounts }}"
+
+ - name: Update the /etc/hosts file with node name
+   become: yes
+   hosts: prod
+   tasks:
+     - lineinfile:
+         dest: "/etc/hosts"
+         line: "{{ hostvars[item]['ansible_default_ipv4']['address'] }}\t{{ hostvars[item]['ansible_hostname']}}"
+         state: present
+       with_items: "{{groups['prod']}}"
+
+
+
+############################################################ Ansible Loop #################################################################################
+
+we need to use loop where we want to repeat some values
+but in ansible we have listing format 
+there are some attributes which do not support listing format 
+they support only string , so to allow this we have to use loop
+
+
+types of loops:-
+
+simple loop or standard loop (it is basically a for loop)
+list of hash loop
+nested loop:- where there are two inputs combined and one input has to run with respect to other input
+in this case ram will be part of all three groups
+
+list    group
+
+ram     staff
+shyam   manager
+manish  guests
+
+
+list of hash loop:-
+
+when you pass multiple values against list
+
+ram redhat staff
+shaym redhat123 guests
+manish redhat456 manager
+
+
+#Example of Simple Loop
+
+- name: Example of simple loop
+  hosts: worker1
+  become: true
+  tasks:
+    - name: add users and apply password
+      user:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - manish
+        - shyam
+        - ram
+        - arnab
+
+
+#Example of simple loop with predefined variable
+
+- name: Example of simple loop with predefined variable
+  hosts: worker1
+  become: true
+  vars:
+    myusers:
+      - ram
+      - shyam
+      - manish
+      - arnab
+  tasks:
+    - name: add users and apply password
+      user:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        "{{ myusers }}"
+
+
+#Example of simple loop with taken input from yaml file
+
+- name: Example of simple loop with taken input from yaml file
+  hosts: client
+  vars_files:
+    /home/ec2-user/playbook/users.yaml
+  tasks:
+    - name: add users and apply password
+      user:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        "{{ users }}"
+
+#Example of simple loop with input from txt file
+
+- name: Example of simple loop with taken input from yaml file
+  hosts: client
+  tasks:
+    - name: add users and apply password
+      user:
+        name: " {{ item }}"
+        state: present
+      with_items: "{{ query('lines', 'cat /home/ec2-user/playbook/users') }}"
+
+#Example of simple loop with input from txt file and it generates random password inside a directory
+
+- hosts: server1
+  tasks:
+    - name: Create remote user
+      vars:
+        password: "{{ lookup('password', 'credentials/' + item + ' length=9')}}"
+      user:
+        name: "{{ item }}"
+        password: "{{ password | password_hash('sha512') }}"
+        update_password: on_create
+      with_items: "{{ query('lines' , 'cat users') }}"
+
+
+
+#Example of Nested Loops
+
+
+- name: Example of Nested Loop
+  hosts: serve1
+  become: true
+  tasks:
+    - name: copies the file into directories
+      copy:
+        src: "{{ item[0] }}"
+        dest: "{{ item[1] }}"
+      with_nested:
+        - { '/etc/passwd','/etc/fstab','/etc/group' }
+        - { '/root','/opt','/tmp' }
+
+
+- name: Example of Nested Loop with predefined variable
+  hosts: server1
+  become: true
+  vars:
+    myfiles:
+      - /etc/passwd
+      - /etc/fstab
+      - /etc/group
+    mydir:
+      - /root
+      - /opt
+      - /tmp
+  tasks:
+    - name: copies the file into directories
+      copy:
+        src: "{{ item[0] }}"
+        dest: "{{ item[1] }}"
+      with_nested:
+        - "{{ myfiles }}"
+        - "{{ mydir }}"
+
+
+#List of Hash Loop
+
+- name: Example of simple list of hash loop
+  hosts: server1
+  become: true
+  tasks:
+    - name: first add three groups
+      group:
+        name: " {{ item }} "
+      with_items:
+        - staff
+        - manager
+        - guests
+    - name: add users into groups
+      user:
+        name: " {{ item.x }} "
+        password: " {{ item.p | password_hash('sha512') }} "
+        group: " {{ item.g }} "
+      with_items:
+        - {x: 'ram',p: 'redhat',g: 'staff'}
+        - {x: 'shyam',p: 'fedora',g: 'manager'}
+        - {x: 'manish',p: 'redhat123',g: 'guests'}
+
+- name: Example of simple list of hash loop by using pre-defined variable
+  hosts: server1
+  become: true
+  vars:
+    myusers:
+      - n: arnab
+        p: redhat
+        g: staff
+    grp:
+      - staff
+      - manager
+      - guests
+  tasks:
+    - name: first add three groups
+      group:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{grp}}"
+    - name: add users into groups
+      user:
+        name: "{{ item.n }}"
+        password: "{{ item.p | password_hash('sha512') }}"
+        group: "{{ item.g }}"
+      with_items: "{{ myusers }}"
+
+
+- name: Example of simple list of hash loop by using seperate file as input
+  hosts: server1
+  become: true
+  vars:
+    - /home/ec2-user/playbook/common.yml
+    - /home/ec2-user/playbook/guests.yml
+  tasks:
+    - name: first add three groups
+      group:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{grp}}"
+    - name: add users into groups
+      user:
+        name: "{{ item.n }}"
+        password: "{{ item.p | password_hash('sha512') }}"
+        group: "{{ item.g }}"
+      with_items: "{{ myusers }}"
+
+
+######################################################### Ansible Vault ################################################################################
+
+
+Vault is a type of encryption in ansible by which we can manage our sensitive values
+
+when ansible was installed 
+
+python2-cryptography-1.7.2-2.el7.x86_64 was installed as well and it is working at the back end for this encryption
+
+#secure is the file name
+
+ansible-vault encrypt secure 
+
+ansible-vault view secure
+
+ansible-vault edit secure
+
+ansible-vault rekey secure (change the password of the file)
+
+ansible-vault decrypt secure
+
+ansible-vault create secure (create a file along with ansible-vault encryption)
+
+
+- name: Example of vault
+  hosts: all
+  vars:
+    mypass: redhat
+  tasks:
+    - name: add user and apply password
+      user:
+        name: ravi
+        password: "{{ mypass|password_hash('sha512')}}"
+
+
+
+# run a encrypted playbook
+
+ansible-playbook p1.yml  --ask-vault-pass
+
+if you dont want to encrypt the password only then please add the variables in a different file and then add encryption
+
+- name: Example of vault
+  hosts: all
+  become: true
+  vars_files:
+    - /home/Arnab/vault/vault.yml
+  tasks:
+    - name: add user and apply password
+      user:
+        name: ravi
+        password: "{{ mypass|password_hash('sha512')}}"
+
+here instead of encrypting the whole file we can encrypt the vault.yml file
+
+
+#Run playbook while the vault password is stored under a file
+
+echo 1234 > creds
+
+ansible-playbook p1.yml --vault-password-file=creds 
+
+
+#How to run a playbook when there is different password for two vault files
+here two vault files are vault.yml and others.yml
+now while running the playbook
+
+ansible-playbook --vault-id one@prompt --vault-id two@prompt p1.yml
+
+
+
+- name: Example of vault
+  hosts: worker1
+  become: true
+  vars_files:
+    - /home/Arnab/vault/vault.yml
+    - /home/Arnab/vault/others.yml
+  tasks:
+    - name: add user and apply password
+      user:
+        name: ravi
+        password: "{{ mypass|password_hash('sha512')}}"
+
+- name: Example of vault
+  hosts: worker2
+  become: true
+  vars_files:
+    - /home/Arnab/vault/vault.yml
+    - /home/Arnab/vault/others.yml
+  tasks:
+    - name: add user and apply password
+      user:
+        name: arnab
+        password: "{{ mypass|password_hash('sha512')}}"
+
+
+
+########################################################## Ansible Notify and Handlers ####################################################################
+
+When one task is dependent on the other then we must use notify and handlers
+
+for an example->
+
+we are installing one application and we will reboot the server only if there is any changes in the system
+
+in notifiers notify is actually a registered  variable ,which will be called later in handlers
+
+- hosts: server1
+  become: true
+  tasks:
+    - name: first deploy the application and capture the state
+      copy:
+        src: chrony.conf
+        dest: /etc/
+      notify: 
+        - restart_chrony
+        - email
+    - name: Install package
+      yum:
+        name: ftp
+        state: installed
+  handler: 
+    - name: Restart chrony service
+      service:
+        name: chronyd
+        state: restarted
+      listen: restart_chrony
+    - name: email #here instead of passing the listener , we can pass the variable in - name
+      delegate_to: localhost
+
+
+- hosts: server1
+  become: true
+  tasks:
+    - name: first deploy the application and capture the state
+      copy:
+        src: chrony.conf
+        dest: /etc/
+      notify: restart_chrony
+    - name: Install package
+      yum:
+        name: ftp
+        state: installed
+  handler: 
+    - name: Restart chrony service
+      service:
+        name: chronyd
+        state: restarted
+      listen: restart_chrony
+
+*************************************************************** Ansible Error handling ************************************************
+
+Error Handling in ansible
+
+Ignore errors
+block and rescue
+failed_when
+
+
+#ignore errors
+
+- name: Example of ignore errors
+  hosts: all
+  become: true
+  tasks:
+    - name: First check service status
+      command: systemctl is-active chronyd
+      register: xyz
+      ignore_errors: yes
+    - debug:
+        var: xyz
+
+
+#block and resuce
+
+rescue will come into picture when there will be some failures
+there can be multiple 
+
+- name: Example of block and rescue
+  hosts: server2
+  become: true
+  tasks:
+    - block:
+        - name: Install Database
+          yum:
+            name: mariadb
+            state: installed
+        - name: Backup Execute
+          get_url:
+            url: http://classroom.example.com/backup.sh
+            dest: /tmp
+        - debug:
+             msg: "Database backup has been executed successfully"
+      rescue:
+         - debug:
+              msg: "Database rollback" #Will run only if block fails
+
+      always:
+        - debug:
+            msg: "Restart Database" # will run irrespective of report outcome
+
+
+
+
+we can pass only block as well and if we have multiple conditions which are same , in that case instead of passing 
+the condition multiple times we can pass it single time and those tasks will run only if the conditions are executed
+
+- name: Example of block and rescue
+  hosts: server2
+  become: true
+  tasks:
+    - block:
+        - name: Install Database
+          yum:
+            name: mariadb
+            state: installed
+        - name: Install Database
+          yum:
+            name: httpd
+            state: installed
+      when: ansible_distribution == 'Redhat'
+
+
+
+
+
+failed_when 
+
+when: if statement is true then tasks will execute other skipped and move on to the new task
+failed_when: if statement value is true then playbook will exit on the same task
+             it will not trigger further tasks on same system when condition is getting true
+
+
+- name: Example of failed_when
+  hosts: server2
+  become: true
+  tasks:
+    - debug: 
+        msg: "check os requirements for data base installation"
+      failed_when: ansible_distribution != 'Ubuntu'
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: installed
+
+
+changed_when
+
+- name: Example of changed_when
+  hosts: server1
+  become: true
+  tasks:
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: installed
+    - name: copy upgrade script on all nodes
+      copy:
+        src: run.sh
+        dest: /root/
+        mode: 0755
+    - name: Start Upgrade Database
+      shell: /root/run.sh
+      notify: restart_db
+      register: xyz
+      changed_when: '"Upgraded successfully" in xyz.stdout'
+  handlers:
+   - name: restart db service
+     service:
+      name: httpd
+      state: restarted
+     listen: restart_db
+
+
+
+
+*************************************************************** Ansible Tagging **********************************************************
+
+Tag name is an name passed inside the ansible-playbook . During Playbook execution we can call this tag name
+so instead of running the complete playbook we can run with the help of tag name
+
+- name: Example of changed_when
+  hosts: server1
+  become: true
+  tasks:
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: installed
+      tags: install
+
+    - name: Uninstall httpd
+      yum:
+        name: httpd
+        state: absent
+      tags: removed
+
+
+
+by default if you dont pass a tag it will run the complete playbook but if you want to make it mandatory to pass some tags 
+during execution then we can write it like this 
+
+- name: Example of changed_when
+  hosts: server1
+  become: true
+  tasks:
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: installed
+      tags: ['never','install']
+
+    - name: Uninstall httpd
+      yum:
+        name: httpd
+        state: absent
+      tags: ['never','removed']
+
+
+
+
+
+
+*********************************************** Ansible Templates **********************************************************************
+
+
+Templates allow you to create new files on the nodes using predefined models based on the Jinja2 templating system. 
+Ansible templates are typically saved as .tpl files and support the use of variables, loops, and conditional expressions.
+Templates are commonly used to configure services based on variable values that can be set up on the playbook itself, in included variable files, 
+or obtained via facts. This enables you to create more versatile setups that adapt behavior based on dynamic information.
+
+
+there are some content which is machine specific and that content should change based on the destination machine's config
+
+
+extension should be j2
+
+
+sample Jinja2 file:-
+
+Welcome to Redhat Ansible training
+Your Server name is {{ ansible_fqdn }}
+Ansible is an configuration tool
+Your Server IP Address is {{ ansible_default_ipv4.address }}
+Your OS Family is {{ ansible_os_family }}
+My Name is {{ user }}
+/dev/sdb disk state is {{ disk.stat.exists }}
+
+
+#check the disk state
+
+- name: Example of changed_when
+  hosts: all
+  become: true
+  vars:
+     user: ram
+  tasks:
+    - name: check disk state
+      stat:
+        path: /dev/sdb
+      register: disk
+
+    - debug:
+        var: disk
+
+
+output:-
+
+ok: [192.168.205.137] => {
+    "disk": {
+        "changed": false,
+        "failed": false,
+        "stat": {
+            "exists": false
+        }
+    }
+}
+
+#check the disk state
+
+- name: Example of changed_when
+  hosts: all
+  become: true
+  vars:
+     user: Arnab
+  tasks:
+    - name: check disk state
+      stat:
+        path: /dev/sdb
+      register: disk
+    - name: Copy Jinja File
+      template:
+        src: motd.j2
+        dest: /etc/motd
+
+
+
+#Loops in Jinja file
+
+{% for item in groups.all %}
+ {{ hostvars[item].ansible_ens33.ipv4.address }} {{ hostvars[item].ansible_fqdn }} {{ hostvars[item].ansible_hostname }}
+{% endfor %}
+
+
+- name: Example of changed_when
+  hosts: all
+  become: true
+  tasks:
+    - name: write hosts files
+      copy:
+        src: hosts.j2
+        dest: /etc/myhosts
+
+
+#Ansible jinja condition
+
+if
+else
+
+if
+elif
+else
+
+if
+elif
+elif
+else
+
+
+{% if ansible_os_family == "Redhat" %}
+We are at Redhat Linux
+{% else %}
+This is not Redhat Enterprise
+{% endif %}
+
+
+{% if ansible_os_family == "Redhat" %}
+We are at Redhat Linux
+{% elif ansible_os_family == "Centos" %}
+Centos Server
+{% else %}
+We are not at a ansible_os_family
+{% endif %}
+
+
+- hosts: all
+  gather_facts: false
+  become: true
+  vars:
+    page_title: My Landing Page
+    page_description: This is my landing page description.
+  tasks:
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: latest
+      notify: start_httpd
+    - name: Apply Page Template
+      template:
+        src: landing.html.j2
+        dest: /var/www/html/index.html
+  handlers:
+    - name: start httpd service
+      service:
+        name: httpd
+        state: started
+      listen: start_httpd
+
+
+
+************************************************************* Ansible Role ******************************************************************
+
+
+Package of Manifests (tasks/jinja/vars/config)
+
+Data is maintained in structor way
+
+Data can be shared easily
+
+1) Custom Roles
+2) Community Based
+
+
+Writing custom role
+
+#these are pre-defined directories which should be created under the role folder
+
+tasks files handlers templates vars defaults meta
+
+tasks:- Only ansible task files , the first file should always be main.yaml
+
+files:- any data conf/code which need to be copied to manage node
+
+templates:- Write the Jinja files inside the folder
+
+handlers:- Write handlers of notifiers , first file should be main.yaml
+
+vars:- Contains all the variables , primary file name should be main.yaml.Higher precedence than vars
+
+default:- Also used for variable declaration , primary file should be main.yaml
+
+metadata:- Contains information about the roles
+
+
+
+#sample task file
+
+we will not write - host / other things at the begining . This will be written by the person who is running the script
+
+#apache/tasks/main.yaml
+
+- name: Install httpd
+  yum:
+    name: "{{ websvc }}"
+    state: installed
+
+- name: Start httpd service
+  service:
+    name: "{{ websvc }}"
+    state: started
+    enabled: true
+- name: Create Directory
+  file:
+    path: "{{ webroot }}"
+    state: directory
+- name: Import tasks from other files
+  import_tasks: install.yaml
+
+#apache/tasks/install.yaml
+
+- name: Copying files
+  copy:
+    src: test/ #by default inside ansible roles it will point towards tasks folder inside role
+    dest: "{{ webroot }}"
+
+- include_vars: test.yaml
+
+- name: Copy jinja2 files
+  template:
+    src: web.conf.j2 #file should be 
+    dest: "{{ web_config }}" # if you are not passing the main.yaml variable then you must declare the variable name
+  notify: restart_apache
+
+
+variables are declared under vars and defaults folders
+
+
+#apache/templates/web.conf.j2
+
+<Virtualhost {{ ansible_ens33.ipv4.address }} :80>
+ServerName {{ ansible_fqdn }}
+DocumentRoot {{ webroot }}
+</virtualhost>
+
+
+#/apache/handlers/main.yaml
+
+- name: Restart httpd
+  service:
+    name: "{{ websvc }}"
+    state: started
+  listen: restart_apache
+
+
+
+
+#Playbook , which will be used to push 
+
+- hosts: all
+  become: true
+  roles:
+    - apache
+
+before you push the role , you must mention where your role is located
+
+roles_path = /home/Arnab/roles
+
