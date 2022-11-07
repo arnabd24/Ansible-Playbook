@@ -10,7 +10,7 @@
       yum:
         name: ftp
         state: installed
-  handler: 
+  handlers: 
     - name: Restart chrony service
       service:
         name: chronyd
