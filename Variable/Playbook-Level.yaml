@@ -1,0 +1,12 @@
+- name: This is to test my ansible setup module
+  hosts: all
+  become: true
+  tasks:
+    - name: Add ip-address and hostname inside /etc/hosts file
+      lineinfile:
+        line: "{{ansible_ens33.ipv4.address }} {{ ansible_hostname }}"
+        dest: /etc/hosts
+    - debug:
+        msg:
+          The default IP is {{ansible_ens33.ipv4.address }}
+          and the hostname is {{ ansible_hostname }}
