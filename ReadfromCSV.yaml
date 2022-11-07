@@ -1,0 +1,45 @@
+Username,UID,First_name,Last_name,Groups,Password
+booker12,9012,Rachel,Booker,Operations,iambooker
+
+
+#The Playbook
+
+- name: create users from csv file
+  hosts: worker1
+  become: true
+  vars:
+    grp: Operations
+  tasks:
+   - name: reading the csv file
+     read_csv:
+      path: /home/ansible/username.csv
+     register: user_list
+     delegate_to: localhost
+
+   - name: display user_list data
+     debug:
+      var: user_list.list
+   - name: extract username details
+     debug:
+       msg: "{{ item.Username }}"
+     with_items: "{{ user_list.list }}"
+
+
+
+   - name: add groups
+     group:
+       name: "{{ item }}"
+       state: present
+     with_items: "{{ grp }}"
+
+
+   - name: create users from the csv
+     user:
+       name: "{{ item.Username }}"
+       uid: "{{ item.UID }}"
+       groups: "{{ item.Groups }}"
+       append: true
+       password: "{{ item.Password | password_hash('sha512') }}"
+       comment: "{{ item.First_name }} {{ item.Last_name }}"
+       state: present
+     with_items: "{{ user_list.list }}"
