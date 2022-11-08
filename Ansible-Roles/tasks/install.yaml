@@ -1,0 +1,4 @@
+- name: copying files
+  copy:
+  src: test/
+  dest: "{{ webroot }}"
