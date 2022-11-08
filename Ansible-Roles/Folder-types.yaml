@@ -10,6 +10,6 @@ tasks: Only ansible task files , the first file should always be main.yaml
 files: any data conf/code which need to be copied to manage node
 templates: Write the Jinja files inside the folder
 handlers: Write handlers of notifiers , first file should be main.yaml
-vars: Contains all the variables , primary file name should be main.yaml.Higher precedence than vars
-defaults: Also used for variable declaration , primary file should be main.yaml
+vars: Contains all the variables , primary file name should be main.yaml.Higher precedence than defaults
+default: Also used for variable declaration , primary file should be main.yaml
 meta: Contains information about the roles
