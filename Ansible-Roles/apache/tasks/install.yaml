@@ -1,7 +1,7 @@
 - name: copying files
   copy:
-  src: test/
-  dest: "{{ webroot }}"
+    src: test/
+    dest: "{{ webroot }}"
 
 - include_vars: test.yaml
 
