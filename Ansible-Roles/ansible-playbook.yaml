@@ -1,0 +1,8 @@
+- hosts: worker1
+  gather_facts: true
+  become: true
+  roles:
+    - apache
+
+#mention the roles path in ansible.cfg
+#roles_path = /home/Arnab/roles
